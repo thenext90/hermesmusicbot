@@ -1,0 +1,92 @@
+# ── HermesMusicBot · docker-compose para VPS headless (sin tarjeta de sonido) ─
+#
+# Una VPS no tiene parlantes: el contenedor levanta su PROPIO PulseAudio con un
+# "sink nulo" (entrypoint AUDIO_MODE=pulse-null). La música suena dentro del
+# contenedor, la cola avanza normal, y con el perfil `stream` se retransmite por
+# Icecast para escucharla desde el laptop en http://IP:8000/music.mp3
+#
+#   cp .env.example .env        # y poné un API_TOKEN sí o sí
+#   docker compose -f docker-compose.vps.yml up -d --build
+#   curl -H "X-API-Token: $API_TOKEN" -X POST localhost:8080/command \
+#        -H 'Content-Type: application/json' -d '{"text":"play Queen"}'
+#
+# Escuchar la música (con el perfil stream):
+#   echo "STREAM_URL=icecast://source:CAMBIAME@icecast:8000/music.mp3" >> .env
+#   docker compose -f docker-compose.vps.yml --profile stream up -d
+#   # en el laptop:  http://IP-DE-LA-VPS:8000/music.mp3   (VLC / mpv / navegador)
+#
+# Nota: en una VPS abre solo el 8080 (API) al mundo y protégelo con API_TOKEN.
+# El 8000 de Icecast, si lo expones, también queda público: cambia la clave.
+name: hermesmusicbot
+
+services:
+  musicbot:
+    build:
+      context: .
+      args:
+        UID: ${PUID:-1000}
+        GID: ${PGID:-1000}
+    image: hermesmusicbot:latest
+    container_name: hermesmusicbot
+    restart: unless-stopped
+    init: true
+    environment:
+      # ── audio: sink nulo propio (no hay tarjeta en la VPS) ───────────────
+      AUDIO_MODE: pulse-null
+      SINK_NAME: ${SINK_NAME:-musicbot}
+      STREAM_URL: ${STREAM_URL:-}
+      STREAM_BITRATE: ${STREAM_BITRATE:-128}
+      # Para poder inspeccionar el audio desde fuera del contenedor:
+      #   docker compose -f docker-compose.vps.yml exec musicbot pactl list short sinks
+      XDG_RUNTIME_DIR: /tmp/pulse-runtime
+      DEFAULT_VOLUME: ${DEFAULT_VOLUME:-70}
+      MPV_SOCKET: /tmp/musicbot-mpv.sock
+      MPV_EXTRA_ARGS: ${MPV_EXTRA_ARGS:-}
+      # ── API: en VPS el token es obligatorio ──────────────────────────────
+      HOST: 0.0.0.0
+      PORT: 8080
+      API_TOKEN: ${API_TOKEN:?define API_TOKEN en .env antes de levantar en una VPS}
+      # ── Telegram: en una VPS suele ser el canal más cómodo ───────────────
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN:-}
+      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS:-}
+      # ── yt-dlp ───────────────────────────────────────────────────────────
+      YTDLP_COOKIES: ${YTDLP_COOKIES:-}
+      YTDLP_PROXY: ${YTDLP_PROXY:-}
+      YTDLP_EXTRA_ARGS: ${YTDLP_EXTRA_ARGS:-}
+      YTDLP_FORMAT: ${YTDLP_FORMAT:-bestaudio/best}
+      SEARCH_PREFIX: ${SEARCH_PREFIX:-ytsearch1}
+      # ── cola y logs ──────────────────────────────────────────────────────
+      MAX_QUEUE: ${MAX_QUEUE:-50}
+      MAX_PLAYLIST: ${MAX_PLAYLIST:-50}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FILE: /app/logs/musicbot.log
+      LOG_MAX_BYTES: ${LOG_MAX_BYTES:-2000000}
+      LOG_BACKUPS: ${LOG_BACKUPS:-3}
+    ports:
+      # En la VPS conviene publicar solo la API y detrás de un proxy con TLS.
+      - "${HOST_PORT:-8080}:8080"
+    volumes:
+      - ./logs:/app/logs
+      - ${MUSIC_PATH:-./music}:/music:ro
+      # - ./cookies.txt:/app/cookies.txt:ro
+    user: "${PUID:-1000}:${PGID:-1000}"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
+
+  # ── Icecast: solo si defines STREAM_URL y levantas con --profile stream ────
+  icecast:
+    image: moul/icecast:latest
+    container_name: hermesmusicbot-icecast
+    restart: unless-stopped
+    profiles: ["stream"]
+    environment:
+      ICECAST_SOURCE_PASSWORD: ${ICECAST_SOURCE_PASSWORD:-CAMBIAME}
+      ICECAST_ADMIN_PASSWORD: ${ICECAST_ADMIN_PASSWORD:-CAMBIAME}
+      ICECAST_RELAY_PASSWORD: ${ICECAST_RELAY_PASSWORD:-CAMBIAME}
+      ICECAST_HOSTNAME: ${ICECAST_HOSTNAME:-localhost}
+    ports:
+      - "${ICECAST_PORT:-8000}:8000"

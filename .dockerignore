@@ -1,0 +1,27 @@
+# ── qué NO se copia dentro de la imagen ─────────────────────────────────────
+# El .env tiene tokens: no debe quedar cocido en una capa de la imagen.
+.env
+.env.*
+!.env.example
+cookies.txt
+*.cookies.txt
+
+# Entorno y cachés locales (hacen el build lento y la imagen gorda)
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Datos locales
+logs/
+*.log
+music/
+*.mp3
+*.m4a
+*.flac
+
+# Control de versiones y notas internas
+.git/
+.gitignore
+RESUMEN-PROYECTO.md

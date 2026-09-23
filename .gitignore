@@ -1,0 +1,33 @@
+# ── secretos y datos locales: NUNCA al repo ─────────────────────────────────
+.env
+.env.*
+!.env.example
+cookies.txt
+*.cookies.txt
+logs/
+*.log
+
+# ── entorno Python ──────────────────────────────────────────────────────────
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# ── música / audio local (derechos de autor, no se publica) ─────────────────
+music/
+*.mp3
+*.m4a
+*.flac
+*.opus
+*.wav
+
+# ── docker ──────────────────────────────────────────────────────────────────
+*.tar
+
+# ── notas internas de traspaso (no son documentación pública) ───────────────
+RESUMEN-PROYECTO.md
+
+# ── sistema ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db

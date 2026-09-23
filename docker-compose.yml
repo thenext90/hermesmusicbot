@@ -1,0 +1,75 @@
+# ── HermesMusicBot · docker-compose (PC / notebook CON parlantes) ───────────
+#
+#   cp .env.example .env        # opcional: ajustar API_TOKEN, volumen, etc.
+#   docker compose up -d --build
+#   docker compose logs -f
+#   curl -s localhost:8080/state
+#
+# El contenedor no trae audio propio: lo toma del host por el socket de
+# PulseAudio/PipeWire. Si el usuario del host no es 1000, exporta UID/GID:
+#   UID=$(id -u) GID=$(id -g) docker compose up -d
+#
+# ¿VPS sin tarjeta de sonido? Usa docker-compose.vps.yml (ver README).
+name: hermesmusicbot
+
+services:
+  musicbot:
+    build:
+      context: .
+      args:
+        UID: ${PUID:-1000}
+        GID: ${PGID:-1000}
+    image: hermesmusicbot:latest
+    container_name: hermesmusicbot
+    restart: unless-stopped
+    init: true                     # recoge zombies: mpv + yt-dlp + ffmpeg
+    environment:
+      # ── audio del host ────────────────────────────────────────────────────
+      AUDIO_MODE: host
+      PULSE_SERVER: unix:/pulse/native
+      AUDIO_DEVICE: ${AUDIO_DEVICE:-}
+      DEFAULT_VOLUME: ${DEFAULT_VOLUME:-70}
+      MPV_SOCKET: /tmp/musicbot-mpv.sock
+      MPV_EXTRA_ARGS: ${MPV_EXTRA_ARGS:-}
+      # ── API ───────────────────────────────────────────────────────────────
+      HOST: 0.0.0.0
+      PORT: 8080
+      API_TOKEN: ${API_TOKEN:-}
+      # ── Telegram (opcional) ──────────────────────────────────────────────
+      TELEGRAM_TOKEN: ${TELEGRAM_TOKEN:-}
+      TELEGRAM_ALLOWED_USERS: ${TELEGRAM_ALLOWED_USERS:-}
+      # ── yt-dlp ───────────────────────────────────────────────────────────
+      YTDLP_COOKIES: ${YTDLP_COOKIES:-}
+      YTDLP_PROXY: ${YTDLP_PROXY:-}
+      YTDLP_EXTRA_ARGS: ${YTDLP_EXTRA_ARGS:-}
+      YTDLP_FORMAT: ${YTDLP_FORMAT:-bestaudio/best}
+      SEARCH_PREFIX: ${SEARCH_PREFIX:-ytsearch1}
+      # ── cola y logs ──────────────────────────────────────────────────────
+      MAX_QUEUE: ${MAX_QUEUE:-50}
+      MAX_PLAYLIST: ${MAX_PLAYLIST:-50}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      LOG_FILE: /app/logs/musicbot.log
+      LOG_MAX_BYTES: ${LOG_MAX_BYTES:-2000000}
+      LOG_BACKUPS: ${LOG_BACKUPS:-3}
+    ports:
+      - "${HOST_PORT:-8080}:8080"
+    volumes:
+      # Audio del host (PipeWire/PulseAudio). Ruta típica: /run/user/1000/pulse
+      - ${PULSE_PATH:-/run/user/1000/pulse}:/pulse
+      - ./logs:/app/logs
+      # Carpeta de música local: dentro del bot se usa como `play /music/...`
+      - ${MUSIC_PATH:-./music}:/music:ro
+      # Cookies de YouTube (opcional). Crear el archivo primero:
+      #   yt-dlp --cookies-from-browser firefox --cookies cookies.txt
+      # - ./cookies.txt:/app/cookies.txt:ro
+    # Igualar el usuario del host para poder usar su socket de audio
+    user: "${PUID:-1000}:${PGID:-1000}"
+    # Grupo `audio` del contenedor: necesario solo si usás ALSA crudo (/dev/snd)
+    group_add:
+      - audio
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 25s
