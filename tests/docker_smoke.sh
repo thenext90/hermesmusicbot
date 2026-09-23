@@ -43,7 +43,15 @@ fi
 
 echo
 echo "── 4. prueba de humo de punta a punta ──"
-BASE_URL="$BASE_URL" API_TOKEN="${API_TOKEN:-}" "$PY" tests/smoke_test.py
+# Mejor dentro del contenedor: ahí httpx ya está instalado (un clon nuevo no tiene venv).
+if $COMPOSE exec -T musicbot sh -c 'true' >/dev/null 2>&1; then
+    echo "  (corriendo dentro del contenedor)"
+    $COMPOSE exec -T -e BASE_URL=http://127.0.0.1:8080 -e API_TOKEN="${API_TOKEN:-}" \
+        musicbot python tests/smoke_test.py
+else
+    echo "  (corriendo en el host, contra ${BASE_URL})"
+    BASE_URL="$BASE_URL" API_TOKEN="${API_TOKEN:-}" "$PY" tests/smoke_test.py
+fi
 [[ $? -eq 0 ]] || fallos=$((fallos + 1))
 
 echo

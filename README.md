@@ -280,13 +280,17 @@ docker compose run --rm musicbot python telegram_bot.py
 ### 5.6 Verificación dentro de Docker
 
 ```bash
-# prueba de humo completa contra el contenedor (API en el puerto 8080 del host)
-API_TOKEN=$(grep -E '^API_TOKEN=' .env | cut -d= -f2-) BASE_URL=http://127.0.0.1:8080 \
-  .venv/bin/python tests/smoke_test.py     # o: tests/docker_smoke.sh
+# prueba de humo completa: la corre DENTRO del contenedor (no hace falta venv en el host)
+API_TOKEN=tu_token BASE_URL=http://127.0.0.1:8080 ./tests/docker_smoke.sh
 
-docker compose logs --tail=30 musicbot     # log del bot dentro del contenedor
-docker compose exec musicbot pactl info    # (modo VPS) el sink nulo responde
+docker compose logs --tail=30 musicbot      # log del bot (también queda en el volumen)
+docker compose exec musicbot pactl info     # (modo VPS) el sink nulo responde
+docker compose exec musicbot tail -5 /app/logs/musicbot.log
 ```
+
+En una VPS, `./tests/docker_smoke.sh` es la forma más rápida de comprobar que quedó bien instalado:
+revisa que el contenedor esté arriba, que la API responda, que haya audio (sink nulo) y hace el
+recorrido completo de comandos.
 
 ### 5.7 Fallos típicos en Docker
 
