@@ -56,7 +56,10 @@ services:
     volumes:
       # Audio del host (PipeWire/PulseAudio). Ruta típica: /run/user/1000/pulse
       - ${PULSE_PATH:-/run/user/1000/pulse}:/pulse
-      - ./logs:/app/logs
+      # Logs en un volumen con nombre: Docker lo siembra con los permisos del
+      # usuario de la imagen (appuser, uid 1000). Con un bind mount ./logs, Docker
+      # lo crearía como root en un clon nuevo y el bot no podría escribir su log.
+      - musicbot-logs:/app/logs
       # Carpeta de música local: dentro del bot se usa como `play /music/...`
       - ${MUSIC_PATH:-./music}:/music:ro
       # Cookies de YouTube (opcional). Crear el archivo primero:
@@ -73,3 +76,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 25s
+
+volumes:
+  musicbot-logs:

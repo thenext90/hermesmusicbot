@@ -15,6 +15,22 @@ SINK_NAME="${SINK_NAME:-musicbot}"
 
 log() { printf '[entrypoint] %s\n' "$*" >&2; }
 
+# El log va a un volumen; si por lo que sea su carpeta no es escribible (por ejemplo
+# un bind mount creado por docker como root), el bot no debe morir por eso: se cae
+# a /tmp y los logs siguen saliendo por stdout (docker compose logs).
+asegurar_dir_log() {
+    local archivo="${LOG_FILE:-/app/logs/musicbot.log}"
+    local dir
+    dir="$(dirname "$archivo")"
+    if mkdir -p "$dir" 2>/dev/null && [ -w "$dir" ]; then
+        return 0
+    fi
+    log "aviso: '$dir' no es escribible por uid $(id -u); los logs van a /tmp y a stdout"
+    export LOG_FILE=/tmp/musicbot.log
+}
+
+asegurar_dir_log
+
 # ── PulseAudio propio + sink nulo (VPS headless) ────────────────────────────
 arrancar_sink_nulo() {
     export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/pulse-runtime}"

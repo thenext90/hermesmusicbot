@@ -66,7 +66,9 @@ services:
       # En la VPS conviene publicar solo la API y detrás de un proxy con TLS.
       - "${HOST_PORT:-8080}:8080"
     volumes:
-      - ./logs:/app/logs
+      # Los logs van a un volumen con nombre (permisos del uid de la imagen) para
+      # que el bot pueda escribir en un clon recién bajado, sin depender del host.
+      - musicbot-logs:/app/logs
       - ${MUSIC_PATH:-./music}:/music:ro
       # - ./cookies.txt:/app/cookies.txt:ro
     user: "${PUID:-1000}:${PGID:-1000}"
@@ -90,3 +92,6 @@ services:
       ICECAST_HOSTNAME: ${ICECAST_HOSTNAME:-localhost}
     ports:
       - "${ICECAST_PORT:-8000}:8000"
+
+volumes:
+  musicbot-logs:

@@ -216,6 +216,8 @@ UID=$(id -u) GID=$(id -g) PULSE_PATH=/run/user/$(id -u)/pulse docker compose up 
 
 * Música local: dejá los archivos en `./music` (o `MUSIC_PATH=/ruta`) y dentro del bot se
   reproducen como `play /music/<carpeta>`.
+* Logs: van a un volumen con nombre (`musicbot-logs`). Se leen con `docker compose logs -f` o
+  `docker compose exec musicbot tail -f /app/logs/musicbot.log`.
 * Verificación real de que el audio sale: `pactl list short sinks` debe decir `RUNNING`.
 * Si el contenedor arranca pero **no suena**, casi siempre es el socket de audio del host:
   `systemctl --user status pipewire-pulse` (o `pulseaudio`) y revisa que `/run/user/$(id -u)/pulse`
@@ -291,8 +293,9 @@ docker compose exec musicbot pactl info    # (modo VPS) el sink nulo responde
 | Síntoma | Causa | Solución |
 |---|---|---|
 | `unhealthy` y el bot no responde | uvicorn no arrancó | `docker compose logs musicbot` |
-| Arranca pero no suena (modo host) | socket de audio mal montado o uid distinto | `PULSE_PATH=/run/user/$(id -u)/pulse UID=$(id -u) GID=$(id -g)` |
-| `Permission denied` al abrir el socket de pulse | el uid del contenedor no es el dueño del socket | correr con `UID=$(id -u) GID=$(id -g)` |
+| `Restarting (1)` en bucle con `PermissionError: '/app/logs/musicbot.log'` | la carpeta de logs quedó como `root` (bind mount creado por Docker) | ya resuelto: los logs van a un volumen con nombre; nunca cambiar a `./logs:/app/logs` sin asegurar permisos |
+| Arranca pero no suena (modo host) | socket de audio mal montado o uid distinto | `PULSE_PATH=/run/user/$(id -u)/pulse PUID=$(id -u) PGID=$(id -g)` |
+| `Permission denied` al abrir el socket de pulse | el uid del contenedor no es el dueño del socket | correr con `PUID=$(id -u) PGID=$(id -g)` |
 | `mpv` muere / los temas se saltan solos | sin salida de audio (típico en VPS) | usar `docker-compose.vps.yml` (`AUDIO_MODE=pulse-null`) o `AUDIO_MODE=null` |
 | El stream de Icecast no suena | clave distinta entre `STREAM_URL` e `ICECAST_SOURCE_PASSWORD` | igualarlas y `docker compose ... up -d` de nuevo |
 | `Sign in to confirm you're not a bot` | YouTube pide verificación | montar `cookies.txt` o reconstruir la imagen (yt-dlp nuevo) |
